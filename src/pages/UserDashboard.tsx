@@ -1,4 +1,5 @@
 import Chatbot from "@/components/Chatbot";
+import brandLogo from "@/components/logo2.jpg";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,16 +8,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { motion } from "framer-motion";
-import { AlertTriangle, Compass, Loader2, LogOut, MapPin, Settings, Shield, Star, User, Users, Watch, Zap, Cloud, Thermometer, Droplets, Wind, Navigation } from "lucide-react";
-import { SITE_NAME } from "@/lib/brand";
-import brandLogo from "@/components/logo2.jpg";
-import Navbar from "@/components/Navbar";
-import { useEffect, useRef, useState, useCallback } from "react";
 import { api } from "@/lib/api";
+import { SITE_NAME } from "@/lib/brand";
+import { motion } from "framer-motion";
+import { AlertTriangle, Cloud, Compass, Droplets, Loader2, LogOut, MapPin, Navigation, Settings, Shield, Star, Thermometer, User, Users, Watch, Wind, Zap } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { lazy, Suspense } from 'react';
 
 // Dynamically import the map component to avoid SSR issues
 const MapWithWeather = lazy(() => import('@/components/MapWithWeather'));
@@ -800,7 +798,7 @@ const UserDashboard = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Map Section */}
-              <div className="h-64 rounded-lg overflow-hidden">
+              <div className="min-h-[420px] rounded-lg">
                 <Suspense fallback={
                   <div className="w-full h-full flex items-center justify-center bg-muted/50">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -300,7 +300,7 @@ const PoliceDashboard = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 mt-20">
       {/* Header */}
       <header className="glass-card backdrop-blur-xl border-b border-glass-border sticky top-2 z-10 mx-4 rounded-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

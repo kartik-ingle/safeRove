@@ -216,6 +216,12 @@ const CITY_CONFIGS = {
   }
 };
 
+declare global {
+  interface Window {
+    gm_authFailure?: () => void;
+  }
+}
+
 const TouristHeatMap: React.FC<TouristHeatMapProps> = ({ 
   center = DEFAULT_CENTER,
   zoom = DEFAULT_ZOOM,
@@ -236,6 +242,7 @@ const TouristHeatMap: React.FC<TouristHeatMapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const zonesRef = useRef<google.maps.Rectangle[]>([]);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const heatLayerRef = useRef<any>(null);
 
   // Get city configuration
   const cityConfig = CITY_CONFIGS[selectedCity as keyof typeof CITY_CONFIGS] || CITY_CONFIGS.Delhi;
@@ -348,6 +355,32 @@ const TouristHeatMap: React.FC<TouristHeatMapProps> = ({
     });
   }, [cityConfig.touristLocations, onTouristLocationClick]);
 
+  const createHeatmap = useCallback((map: google.maps.Map) => {
+    try {
+      // Clear previous heatmap
+      if (heatLayerRef.current) {
+        heatLayerRef.current.setMap(null);
+        heatLayerRef.current = null;
+      }
+      const points = cityConfig.touristLocations.map((l) => ({
+        location: new google.maps.LatLng(l.position.lat, l.position.lng),
+        weight: Math.max(1, l.touristCount)
+      }));
+      // @ts-expect-error visualization library is loaded at runtime
+      const layer = new google.maps.visualization.HeatmapLayer({
+        data: points as any,
+        dissipating: true,
+        radius: 30,
+        opacity: 0.6
+      });
+      layer.setMap(map);
+      heatLayerRef.current = layer;
+    } catch (e) {
+      // Non-fatal; heatmap optional
+      console.warn('Heatmap unavailable:', e);
+    }
+  }, [cityConfig.touristLocations]);
+
   const initializeMap = useCallback(async () => {
     if (!mapRef.current) return;
 
@@ -356,15 +389,22 @@ const TouristHeatMap: React.FC<TouristHeatMapProps> = ({
       setError(null);
 
       const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-      if (!apiKey) {
+      if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY') {
         setUseLeaflet(true);
         return;
       }
 
+      // Handle auth failure from Google Maps JS
+      window.gm_authFailure = () => {
+        console.warn('Google Maps authentication failed. Falling back to Leaflet.');
+        setError('Google Maps authentication failed.');
+        setUseLeaflet(true);
+      };
+
       const loader = new Loader({
         apiKey,
         version: 'weekly',
-        libraries: ['places']
+        libraries: ['places', 'visualization']
       });
 
       const google = await loader.load();
@@ -384,12 +424,27 @@ const TouristHeatMap: React.FC<TouristHeatMapProps> = ({
 
       setMap(mapInstance);
       
-      // Create safety zones and tourist markers
+      // Create safety zones, heatmap and tourist markers
       createSafetyZones(mapInstance);
+      createHeatmap(mapInstance);
       createTouristMarkers(mapInstance);
 
       setSafetyZones(cityConfig.safetyZones);
       setTouristLocations(cityConfig.touristLocations);
+
+      // Detect Google Maps error overlay and fallback automatically
+      setTimeout(() => {
+        try {
+          const container = mapRef.current as HTMLDivElement | null;
+          if (!container) return;
+          const errEl = container.querySelector('[class*="gm-err"], .gm-err-container');
+          if (errEl) {
+            console.warn('Detected Google Maps error overlay, falling back to Leaflet.');
+            setError('Google Maps error');
+            setUseLeaflet(true);
+          }
+        } catch {}
+      }, 800);
 
     } catch (err) {
       console.error('Error initializing map:', err);
@@ -397,7 +452,7 @@ const TouristHeatMap: React.FC<TouristHeatMapProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [cityConfig, createSafetyZones, createTouristMarkers]);
+  }, [cityConfig, createSafetyZones, createTouristMarkers, createHeatmap]);
 
   // Initialize map when component mounts or city changes
   useEffect(() => {
@@ -408,6 +463,17 @@ const TouristHeatMap: React.FC<TouristHeatMapProps> = ({
   useEffect(() => {
     if (useLeaflet && !leafletLoaded && typeof window !== 'undefined') {
       (async () => {
+        // Inject Leaflet CSS to prevent blank map styles
+        try {
+          const existing = document.querySelector('link[data-leaflet-css]') as HTMLLinkElement | null;
+          if (!existing) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+            link.setAttribute('data-leaflet-css', 'true');
+            document.head.appendChild(link);
+          }
+        } catch {}
         const mod = await import('react-leaflet');
         setLeaflet(mod);
         setLeafletLoaded(true);
@@ -423,12 +489,13 @@ const TouristHeatMap: React.FC<TouristHeatMapProps> = ({
       map.setZoom(newConfig.zoom);
       
       createSafetyZones(map);
+      createHeatmap(map);
       createTouristMarkers(map);
       
       setSafetyZones(newConfig.safetyZones);
       setTouristLocations(newConfig.touristLocations);
     }
-  }, [selectedCity, map, createSafetyZones, createTouristMarkers]);
+  }, [selectedCity, map, createSafetyZones, createTouristMarkers, createHeatmap]);
 
   const getTotalTourists = () => {
     return touristLocations.reduce((sum, location) => sum + location.touristCount, 0);
@@ -475,9 +542,20 @@ const TouristHeatMap: React.FC<TouristHeatMapProps> = ({
           ) : (
             <Leaflet.MapContainer center={[cityConfig.center.lat, cityConfig.center.lng]} zoom={cityConfig.zoom} style={{ height: '100%', width: '100%' }}>
               <Leaflet.TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
+              {/* Safety zones */}
               {cityConfig.safetyZones.map((z) => (
-                <Leaflet.Rectangle key={z.id} bounds={[[z.bounds.south, z.bounds.west],[z.bounds.north, z.bounds.east]] as any} pathOptions={{ color: z.color, fillOpacity: 0.3 }} eventHandlers={{ click: () => onZoneClick?.({ id: z.id, name: z.name, bounds: {} as any, safetyLevel: z.safetyLevel, color: z.color, touristCount: z.touristCount }) }} />
+                <Leaflet.Rectangle key={z.id} bounds={[[z.bounds.south, z.bounds.west],[z.bounds.north, z.bounds.east]] as any} pathOptions={{ color: z.color, fillOpacity: 0.2, weight: 1 }} eventHandlers={{ click: () => onZoneClick?.({ id: z.id, name: z.name, bounds: {} as any, safetyLevel: z.safetyLevel, color: z.color, touristCount: z.touristCount }) }} />
               ))}
+              {/* Heat-like circles for tourist density */}
+              {cityConfig.touristLocations.map((l) => (
+                <Leaflet.Circle
+                  key={`c_${l.id}`}
+                  center={[l.position.lat, l.position.lng] as any}
+                  radius={Math.max(80, l.touristCount * 12)}
+                  pathOptions={{ color: '#ff5722', fillColor: '#ff5722', fillOpacity: 0.25, weight: 0 }}
+                />
+              ))}
+              {/* Markers with popup */}
               {cityConfig.touristLocations.map((l) => (
                 <Leaflet.Marker key={l.id} position={[l.position.lat, l.position.lng] as any} eventHandlers={{ click: () => onTouristLocationClick?.(l) }}>
                   <Leaflet.Popup>

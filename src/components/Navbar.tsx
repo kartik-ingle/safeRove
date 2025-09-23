@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import GoogleTranslate from "@/components/GoogleTranslate";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+// import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -81,7 +81,7 @@ const Navbar = () => {
 
           {/* Right side navigation */}
           <div className="flex items-center space-x-4">
-            <LanguageSwitcher />
+            {/* <LanguageSwitcher /> */}
             <GoogleTranslate />
             {/* Login As Dropdown */}
             {!isAuthenticated && (

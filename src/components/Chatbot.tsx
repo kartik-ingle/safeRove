@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageCircle, X, Send, Bot, User, Loader2, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { AnimatePresence, motion } from "framer-motion";
+import { Bot, MessageCircle, Send, User, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface Message {
@@ -60,13 +59,64 @@ const Chatbot = () => {
     "Weather info"
   ];
 
+  // Local fallback responder when APIs are unavailable
+  const localResponder = (userMessage: string): string => {
+    const msg = userMessage.toLowerCase();
+
+    if (msg.includes("emergency")) {
+      return (
+        "Emergency help:\n" +
+        "• Police: 112\n" +
+        "• Ambulance: 102\n" +
+        "• Women helpline: 1091\n" +
+        "Share your live location with trusted contacts and stay in a well-lit public place."
+      );
+    }
+    if (msg.includes("nearby") || msg.includes("attraction")) {
+      return (
+        "Nearby attractions (example):\n" +
+        "• India Gate – 2.1 km\n" +
+        "• Red Fort – 5.3 km\n" +
+        "• Lodhi Garden – 4.8 km\n" +
+        "Use the Explore page for directions and timings."
+      );
+    }
+    if (msg.includes("safety") || msg.includes("tip")) {
+      return (
+        "Safety tips:\n" +
+        "• Keep valuables zipped and in front pockets.\n" +
+        "• Use verified cabs (Uber/Ola).\n" +
+        "• Avoid isolated areas at night.\n" +
+        "• Save local emergency numbers in your phone."
+      );
+    }
+    if (msg.includes("guide")) {
+      return (
+        "Local guides:\n" +
+        "You can find verified guides via the Tourism office or apps like Tripadvisor/Viator. Always confirm ID and price before starting."
+      );
+    }
+    if (msg.includes("weather")) {
+      return (
+        "Weather info:\n" +
+        "Check the weather card on your dashboard map. If data is missing, try refreshing location or ensure connectivity."
+      );
+    }
+
+    return (
+      "I can help with emergency help, nearby attractions, safety tips, local guides, and weather info. " +
+      "Try asking: ‘Nearby attractions’ or ‘Safety tips’."
+    );
+  };
+
   const generateGeminiResponse = async (userMessage: string): Promise<string> => {
     const apiKeyRaw = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
     const apiKey = (apiKeyRaw || '').replace(/^\"|\"$/g, '').trim();
     
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY') {
       console.error('Gemini API key is not configured');
-      return "I'm sorry, the AI service is not properly configured. Please contact support.";
+      // Use local fallback instead of erroring out
+      return localResponder(userMessage);
     }
 
     const model = 'gemini-1.5-flash';
@@ -84,9 +134,9 @@ const Chatbot = () => {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: `You are a helpful travel assistant for SafeTravel. Your name is SafeTravel AI. 
-              Keep your responses concise and helpful. Focus on travel safety, local information, 
-              and emergency assistance. ${userMessage}`
+              text: `You are a helpful travel assistant for SafeTravel. Your name is SafeTravel AI. \n` +
+                    `Keep your responses concise and helpful. Focus on travel safety, local information, \n` +
+                    `and emergency assistance. ${userMessage}`
             }]
           }],
           generationConfig: {
@@ -118,13 +168,13 @@ const Chatbot = () => {
         return data.text;
       } else {
         console.warn('Unexpected API response format:', data);
-        return "I received an unexpected response from the AI service. Please try again.";
+        return localResponder(userMessage);
       }
     } catch (error) {
       console.error('Error calling Gemini API:', error);
       setError(error instanceof Error ? error.message : 'An unknown error occurred');
       toast.error('Failed to get response from AI');
-      return "I'm having trouble connecting to the AI service. Please try again in a moment.";
+      return localResponder(userMessage);
     } finally {
       setIsLoading(false);
     }
@@ -162,17 +212,17 @@ const Chatbot = () => {
             return;
           }
         } catch (e) {
-          // fall through to Gemini
+          // fall through to Gemini/local
         }
       }
-      // Fallback to Gemini
+      // Gemini or local fallback
       const response = await generateGeminiResponse(messageText);
       setMessages(prev => prev.filter(msg => msg.id !== 'typing'));
       const botResponse: Message = { id: (Date.now() + 1).toString(), text: response, sender: 'bot', timestamp: new Date() };
       setMessages(prev => [...prev, botResponse]);
     } catch (error) {
       setMessages(prev => prev.filter(msg => msg.id !== 'typing'));
-      const errorResponse: Message = { id: (Date.now() + 2).toString(), text: "Sorry, I encountered an error processing your request. Please try again.", sender: 'bot', timestamp: new Date() };
+      const errorResponse: Message = { id: (Date.now() + 2).toString(), text: localResponder(messageText), sender: 'bot', timestamp: new Date() };
       setMessages(prev => [...prev, errorResponse]);
     }
   };
@@ -298,7 +348,7 @@ const Chatbot = () => {
                     value={inputMessage}
                     onChange={(e) => setInputMessage(e.target.value)}
                     placeholder="Type your message..."
-                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
                     className="flex-1 glass-card border-glass-border"
                   />
                   {/* Microphone for speech-to-text (Web Speech API) */}
