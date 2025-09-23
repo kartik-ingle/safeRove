@@ -70,6 +70,26 @@ const PoliceDashboard = () => {
 
   const [complaints, setComplaints] = useState<Complaint[]>([
     {
+      id: "DL-0102",
+      type: "emergency",
+      tourist: {
+        name: "kartik",
+        id: "ST-B2C3D4E5",
+        nationality: "Indian",
+        phone: "+91-9211783087"
+      },
+      location: {
+        lat: 28.737038,
+        lng: 77.111883,
+        address: "BPIT, New Delhi"
+      },
+      timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
+      status: "open",
+      priority: "critical",
+      assignedStation: "New Delhi Police Station",
+      description: "Missing Person"
+    },
+    {
       id: "C001",
       type: "emergency",
       tourist: {

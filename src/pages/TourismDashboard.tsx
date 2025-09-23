@@ -1,14 +1,14 @@
+import TouristHeatMap from "@/components/TouristHeatMap";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { motion } from "framer-motion";
-import { Calendar, Landmark, MapPin, Users, UserCheck, Star, Shield, BarChart3, LogOut, Map, Cloud } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 import { api, connectDashboardWS } from "@/lib/api";
-import TouristHeatMap from "@/components/TouristHeatMap";
+import { motion } from "framer-motion";
+import { Calendar, Landmark, LogOut, Map, MapPin, Shield, UserCheck, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
     CartesianGrid,
     Line,
@@ -61,6 +61,7 @@ const TourismDashboard = () => {
   const [metrics, setMetrics] = useState<{ active_tourists?: number; recent_alerts?: number } | null>(null);
   const [routeDeviations, setRouteDeviations] = useState<Array<any>>([]);
   const [sosEvents, setSosEvents] = useState<Array<any>>([]);
+  const [sosSending, setSosSending] = useState<boolean>(false);
 
   const filteredMonuments = useMemo(() => MONUMENTS.filter(m => m.city === city), [city]);
   const selectedMonumentDetail = useMemo(() => MONUMENTS.find((m) => m.id === monument)!, [monument]);
@@ -126,9 +127,9 @@ const TourismDashboard = () => {
   const touristSafetyScores = [
     { touristId: "T-001", name: "John Doe", location: "Red Fort", score: 92, status: "Safe" },
     { touristId: "T-002", name: "Jane Smith", location: "Taj Mahal", score: 88, status: "Safe" },
-    { touristId: "T-003", name: "Mike Johnson", location: "Qutub Minar", score: 95, status: "Very Safe" },
-    { touristId: "T-004", name: "Sarah Wilson", location: "India Gate", score: 76, status: "Caution" },
-    { touristId: "T-005", name: "David Brown", location: "Hawa Mahal", score: 89, status: "Safe" },
+
+
+    { touristId: "T-005", name: "Kartik", location: "BPIT, New Delhi", score: 69, status: "Caution" },
   ];
 
   // Sample markers for the map
@@ -162,6 +163,33 @@ const TourismDashboard = () => {
             </h1>
           </div>
           <div className="flex items-center space-x-4">
+            <Button 
+              variant={sosSending ? "secondary" : "destructive"}
+              size="sm"
+              disabled={sosSending}
+              onClick={() => {
+                if (sosSending) return;
+                setSosSending(true);
+                setTimeout(() => {
+                  try {
+                    const list = JSON.parse(localStorage.getItem('sos_events') || '[]');
+                    const ev = {
+                      id: `sos-${Date.now()}`,
+                      touristId: 'LOCAL',
+                      at: new Date().toISOString(),
+                      location: { lat: 28.6139, lng: 77.2090, accuracy: 0 },
+                      transcript: 'Emergency SOS triggered from dashboard.',
+                    };
+                    list.push(ev);
+                    localStorage.setItem('sos_events', JSON.stringify(list));
+                  } catch {}
+                  alert('alert has been sent to the concerned authority');
+                  setSosSending(false);
+                }, 5000);
+              }}
+            >
+              {sosSending ? 'Sending SOS…' : 'Emergency SOS'}
+            </Button>
             <Button 
               variant="ghost" 
               size="sm"
@@ -657,13 +685,13 @@ const TourismDashboard = () => {
                     },
                     {
                       id: "IT-003",
-                      tourist: "Mike Johnson",
-                      city: "Jaipur",
-                      currentLocation: "Amber Fort",
-                      progress: 30,
+                      tourist: "Kartik",
+                      city: "Delhi",
+                      currentLocation: "BPIT, New Delhi",
+                      progress: 69,
                       guide: "Amit Singh",
                       status: "In Progress",
-                      nextStop: "Hawa Mahal"
+                      nextStop: "Vaishali"
                     }
                   ].map((itinerary) => (
                     <Card key={itinerary.id} className="p-4">

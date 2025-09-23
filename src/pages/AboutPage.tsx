@@ -1,33 +1,45 @@
-import { motion } from "framer-motion";
-import { Shield, Users, Globe, Zap, Award, Heart } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import Navbar from "@/components/Navbar";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { motion } from "framer-motion";
+import { Globe, Heart, Shield, Users, Zap } from "lucide-react";
 
 const AboutPage = () => {
   const team = [
     {
-      name: "Dr. Priya Sharma",
-      role: "Chief Technology Officer",
-      expertise: "AI & Blockchain",
+      name: "Kusha Sharma",
+      role: "Team leader",
+      expertise: "",
       image: "PS"
     },
     {
-      name: "Rajesh Kumar",
-      role: "Head of Security",
-      expertise: "Cybersecurity & IoT",
+      name: "Avni Bashin",
+      role: "Team member",
+      expertise: "",
       image: "RK"
     },
     {
-      name: "Anita Desai",
-      role: "Operations Director",
-      expertise: "Tourism & Safety",
+      name: "Samarth Arora",
+      role: "Team member",
+      expertise: "",
       image: "AD"
     },
     {
-      name: "Mohammed Ali",
-      role: "Lead Developer",
-      expertise: "Mobile & Web",
+      name: "Anubhav Singh",
+      role: "Team member",
+      expertise: "",
+      image: "MA"
+    },
+    {
+      name: "Himanshu Dudeja",
+      role: "Team member",
+      expertise: "",
+      image: "MA"
+    },
+    {
+      name: "Kartik Ingle",
+      role: "Team member",
+      expertise: "",
       image: "MA"
     }
   ];
@@ -188,7 +200,7 @@ const AboutPage = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
                   {team.map((member, index) => (
                     <motion.div
                       key={member.name}
@@ -200,7 +212,7 @@ const AboutPage = () => {
                       <div className="w-16 h-16 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center text-xl font-bold text-white mx-auto mb-4">
                         {member.image}
                       </div>
-                      <h3 className="font-bold text-lg">{member.name}</h3>
+                      <h3 className="font-bold text-m">{member.name}</h3>
                       <p className="text-primary font-medium text-sm">{member.role}</p>
                       <p className="text-muted-foreground text-sm mt-2">{member.expertise}</p>
                     </motion.div>

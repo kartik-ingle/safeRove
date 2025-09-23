@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
 import { useTranslationContext } from '@/components/TranslationProvider';
 import { Button } from '@/components/ui/button';
-import { Globe } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import React, { useEffect, useState } from 'react';
 
 // Language data with flags
 const languageData = {
@@ -46,7 +45,7 @@ export const LanguageSwitcher: React.FC = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button 
+        {/* <Button 
           variant="ghost" 
           size="sm" 
           className="flex items-center gap-2 px-3 text-foreground hover:bg-primary/20 hover:text-primary-glow transition-all duration-300"
@@ -54,7 +53,7 @@ export const LanguageSwitcher: React.FC = () => {
           <Globe className="h-4 w-4" />
           <span className="hidden sm:inline">{currentLanguage.flag} {currentLang.toUpperCase()}</span>
           <span className="sm:hidden">{currentLanguage.flag}</span>
-        </Button>
+        </Button> */}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="glass-card border-glass-border min-w-[180px]">
         {Object.entries(languageData).map(([code, { name, flag }]) => (

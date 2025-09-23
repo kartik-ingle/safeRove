@@ -15,16 +15,28 @@ const GoogleTranslate = () => {
     const init = () => {
       try {
         if (!window.google || !window.google.translate || !containerRef.current) return;
+        // Ensure default language is English on first load
+        if (typeof document !== 'undefined') {
+          const hasCookie = document.cookie.split('; ').some(c => c.startsWith('googtrans='));
+          if (!hasCookie) {
+            const expire = new Date();
+            expire.setFullYear(expire.getFullYear() + 1);
+            const expires = `expires=${expire.toUTCString()}`;
+            const langPair = '/en/en';
+            try { document.cookie = `googtrans=${langPair};path=/;${expires}`; } catch {}
+            try { document.cookie = `googtrans=${langPair};domain=.${window.location.hostname};path=/;${expires}`; } catch {}
+          }
+        }
         // Clear any previous content (if navigating between routes)
         containerRef.current.innerHTML = "";
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         // Instantiate the widget
-        // @ts-expect-error - google translate types not available
+    
         new window.google.translate.TranslateElement(
           {
             pageLanguage: "en",
-            includedLanguages: "en,hi,fr,es,de,ar,zh-CN,ru,pt,it",
-            layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
+            includedLanguages: "en,hi,bn,te,mr,ta,ur,gu,kn,or,pa,ml,as", // English + 12 Indian languages
+            layout: window.google.translate.TranslateElement.InlineLayout.HORIZONTAL,
           },
           containerRef.current
         );
