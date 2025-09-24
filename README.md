@@ -1,3 +1,72 @@
+## PWA (Installable App)
+
+This project is now a PWA.
+
+- Added `public/manifest.webmanifest` and `public/sw.js`
+- Registered service worker in `index.html`
+
+How to test:
+- Run `npm run dev`
+- Open in Chrome, visit the site over `http://localhost` and use the browser menu: Install App
+
+## Build as Native App (Capacitor)
+
+You can wrap the PWA in Capacitor to build Android/iOS.
+
+1. Install Capacitor
+   ```bash
+   npm install @capacitor/core @capacitor/cli
+   ```
+2. Add platforms
+   ```bash
+   npx cap init "SafeRove" "com.saferove.app" --web-dir=dist
+   npm run build
+   npx cap add android
+   npx cap add ios
+   npx cap copy
+   npx cap open android   # or: npx cap open ios
+   ```
+3. Build APK/IPA in Android Studio/Xcode.
+
+Permissions (Camera/Mic/Location) will be requested by the web app via WebView when needed.
+
+### Android permissions (AndroidManifest.xml)
+Capacitor will merge permissions, but ensure these are present in your Android project:
+
+```xml
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.RECORD_AUDIO" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+```
+
+For Android 9+ cleartext, rely on https or set `android:usesCleartextTraffic="true"` on dev only.
+
+### iOS permissions (Info.plist)
+Add usage descriptions:
+
+```xml
+<key>NSCameraUsageDescription</key>
+<string>Camera is used to record face video during SOS.</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>Microphone is used to capture audio during SOS.</string>
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>Location is used to attach coordinates to SOS alerts.</string>
+```
+
+## Alternative: React Native WebView
+
+If you prefer a pure RN shell, create a React Native app and embed a WebView that points to your deployed URL:
+
+```tsx
+import React from 'react';
+import { WebView } from 'react-native-webview';
+
+export default function App() {
+  return <WebView source={{ uri: 'https://your-website-url.com' }} style={{ flex: 1 }} />;
+}
+```
+
 # Welcome to your Lovable project
 
 ## Project info
