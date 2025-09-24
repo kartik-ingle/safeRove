@@ -37,11 +37,13 @@ function seededRandom(seed: number) {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
-function generateHourlyEntries(monument: MonumentKey, dateStr: string) {
+type HourEntry = { hour: string; entries: number };
+
+function generateHourlyEntries(monument: MonumentKey, dateStr: string): HourEntry[] {
   const [year, month, day] = dateStr.split("-").map(Number);
   const seed = year * 10000 + month * 100 + day + monument.length * 97;
   const base = 50 + Math.floor(seededRandom(seed) * 100);
-  const data = [];
+  const data: HourEntry[] = [];
   for (let h = 6; h <= 19; h++) {  // 6 AM - 7 PM consistent with opening hours
     const wave = Math.sin((Math.PI * (h - 6)) / 13); // peak midday
     const noise = (seededRandom(seed + h * 13) - 0.5) * 20;
@@ -650,9 +652,18 @@ const TourismDashboard = () => {
                             {sos.transcript && (
                               <div className="text-xs mt-1">Transcript: <span className="font-medium">{sos.transcript}</span></div>
                             )}
+                          {typeof sos.heart_rate_bpm === 'number' && (
+                            <div className="text-xs mt-1">Heart rate: <span className="font-medium">{sos.heart_rate_bpm} BPM</span></div>
+                          )}
+                          {sos.stress && (
+                            <div className="text-xs mt-1">Stress: <span className="font-medium capitalize">{sos.stress}</span></div>
+                          )}
                             {sos.audio && (
                               <audio controls src={sos.audio} className="mt-2 w-full" />
                             )}
+                          {sos.video && (
+                            <video controls src={sos.video} className="mt-2 w-full rounded" />
+                          )}
                             <div className="mt-2 flex gap-2">
                               <Button size="sm" variant="outline" onClick={() => window.open(`https://www.google.com/maps?q=${sos.location.lat},${sos.location.lng}`, '_blank')}>View</Button>
                             </div>

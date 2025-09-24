@@ -505,6 +505,111 @@ const UserDashboard = () => {
                     try {
                       setIsSendingSOS(true);
                       
+                      // Request camera + mic to prompt permissions (keeps existing audio + adds video)
+                      const mediaPermission = navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? true : false;
+                      if (!mediaPermission) {
+                        toast.error('Camera not supported in this browser.');
+                      }
+
+                      // Prepare combined media (video + audio) and frame sampling for HR
+                      let avStream: MediaStream | null = null;
+                      let recordedVideoDataUrl = "";
+                      const greenSamples: number[] = [];
+                      let sampleFps = 15; // target sampling FPS for rPPG
+                      let samplingIntervalId: number | null = null;
+                      const CAPTURE_MS = 10000; // 10 seconds capture window
+                      const startedAt = Date.now();
+
+                      const estimateHeartRate = (samples: number[], fps: number): number | null => {
+                        if (!samples.length || fps <= 0) return null;
+                        // detrend & normalize
+                        const n = samples.length;
+                        const mean = samples.reduce((a,b)=>a+b,0)/n;
+                        const detrended = samples.map((v,i)=> v - mean);
+                        // simple moving average smoothing
+                        const window = 5;
+                        const smooth: number[] = [];
+                        for (let i=0;i<detrended.length;i++) {
+                          let s=0,c=0; for (let k=-Math.floor(window/2); k<=Math.floor(window/2); k++){ const idx=i+k; if (idx>=0 && idx<detrended.length){ s+=detrended[idx]; c++; } }
+                          smooth.push(c? s/c : detrended[i]);
+                        }
+                        // peak detection with minimum distance ~0.5s
+                        const minDistance = Math.max(1, Math.floor(fps*0.5));
+                        const peaks: number[] = [];
+                        for (let i=1;i<smooth.length-1;i++) {
+                          if (smooth[i] > smooth[i-1] && smooth[i] > smooth[i+1]) {
+                            if (peaks.length===0 || i - peaks[peaks.length-1] >= minDistance) {
+                              peaks.push(i);
+                            }
+                          }
+                        }
+                        if (peaks.length < 2) return null;
+                        const intervals: number[] = [];
+                        for (let i=1;i<peaks.length;i++) intervals.push((peaks[i]-peaks[i-1]) / fps);
+                        const avg = intervals.reduce((a,b)=>a+b,0)/intervals.length;
+                        if (!isFinite(avg) || avg<=0) return null;
+                        return Math.round((60/avg)*100)/100;
+                      };
+
+                      const startAVCapture = async () => {
+                        try {
+                          avStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: true });
+                        } catch (e) {
+                          // fallback: audio only (existing flow)
+                          try { avStream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch {}
+                        }
+
+                        // Start recording short video clip if video available
+                        if (avStream && avStream.getVideoTracks().length > 0) {
+                          const rec = new MediaRecorder(avStream, { mimeType: 'video/webm;codecs=vp9' });
+                          const chunks: BlobPart[] = [];
+                          rec.ondataavailable = (e) => { if (e.data.size>0) chunks.push(e.data); };
+                          rec.onstop = () => {
+                            const blob = new Blob(chunks, { type: 'video/webm' });
+                            const reader = new FileReader();
+                            reader.onloadend = () => { recordedVideoDataUrl = reader.result as string; };
+                            reader.readAsDataURL(blob);
+                          };
+                          rec.start();
+                          setTimeout(() => { try { rec.stop(); } catch {} }, CAPTURE_MS);
+
+                          // Set up canvas sampling of green channel
+                          const videoEl = document.createElement('video');
+                          videoEl.srcObject = avStream;
+                          videoEl.muted = true; videoEl.playsInline = true;
+                          try { await videoEl.play(); } catch {}
+                          const canvas = document.createElement('canvas');
+                          const ctx = canvas.getContext('2d');
+                          const sample = () => {
+                            try {
+                              const w = 160, h = 120;
+                              canvas.width = w; canvas.height = h;
+                              if (!ctx) return;
+                              ctx.drawImage(videoEl, 0, 0, w, h);
+                              const img = ctx.getImageData(0, 0, w, h).data;
+                              // average green channel over central forehead-like band: center horizontal strip
+                              let sum = 0; let count = 0;
+                              const yStart = Math.floor(h*0.2), yEnd = Math.floor(h*0.35);
+                              const xStart = Math.floor(w*0.3), xEnd = Math.floor(w*0.7);
+                              for (let y=yStart; y<yEnd; y++) {
+                                for (let x=xStart; x<xEnd; x++) {
+                                  const idx = (y*w + x)*4; // [r,g,b,a]
+                                  sum += img[idx+1];
+                                  count++;
+                                }
+                              }
+                              if (count>0) greenSamples.push(sum/count);
+                            } catch {}
+                          };
+                          const intervalMs = Math.max(10, Math.floor(1000 / sampleFps));
+                          samplingIntervalId = window.setInterval(sample, intervalMs);
+                          // stop sampling shortly after capture to finish last frames
+                          setTimeout(() => { if (samplingIntervalId) { clearInterval(samplingIntervalId); samplingIntervalId = null; } try { videoEl.pause(); } catch {} }, CAPTURE_MS + 1000);
+                        }
+                      };
+
+                      await startAVCapture();
+
                       // Get current location
                       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
                         navigator.geolocation.getCurrentPosition(
@@ -540,7 +645,9 @@ const UserDashboard = () => {
                       // Record a short audio clip (~5s)
                       const audioPromise = new Promise<string>(async (resolve) => {
                         try {
-                          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                          const stream = (avStream && avStream.getAudioTracks().length > 0)
+                            ? new MediaStream(avStream.getAudioTracks())
+                            : await navigator.mediaDevices.getUserMedia({ audio: true });
                           const chunks: BlobPart[] = [];
                           const mr = new MediaRecorder(stream);
                           mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
@@ -555,7 +662,7 @@ const UserDashboard = () => {
                             reader.readAsDataURL(blob);
                           };
                           mr.start();
-                          setTimeout(() => { try { mr.stop(); } catch { resolve(""); } }, 5000);
+                          setTimeout(() => { try { mr.stop(); } catch { resolve(""); } }, CAPTURE_MS);
                         } catch {
                           resolve("");
                         }
@@ -573,6 +680,11 @@ const UserDashboard = () => {
                       // Await STT and audio in parallel
                       const [sttText, audioDataUrl] = await Promise.all([sttPromise, audioPromise]);
 
+                      // Compute heart rate & basic stress from sampled frames
+                      let heartRate: number | null = null;
+                      try { heartRate = estimateHeartRate(greenSamples.slice(-sampleFps*10), sampleFps); } catch {}
+                      const stressLevel = heartRate ? (heartRate > 100 ? 'high' : heartRate > 85 ? 'medium' : 'low') : 'unknown';
+
                       // Broadcast SOS event locally (real-time across dashboards)
                       try {
                         const sosEvent = {
@@ -582,6 +694,9 @@ const UserDashboard = () => {
                           location: { lat: position.coords.latitude, lng: position.coords.longitude, accuracy: position.coords.accuracy },
                           transcript: sttText,
                           audio: audioDataUrl, // data URL playable in <audio>
+                          video: recordedVideoDataUrl, // data URL playable in <video>
+                          heart_rate_bpm: heartRate || undefined,
+                          stress: stressLevel,
                         };
                         // Persist recent events
                         const key = 'sos_events';
@@ -591,6 +706,9 @@ const UserDashboard = () => {
                         // Broadcast channel for real-time updates in other dashboards
                         try { new BroadcastChannel('sos_channel').postMessage(sosEvent); } catch {}
                       } catch {}
+
+                      // Cleanup media tracks
+                      try { avStream?.getTracks().forEach(t=>t.stop()); } catch {}
 
                       // Check if backend is available
                       const isBackendAvailable = import.meta.env.VITE_API_URL && 
@@ -661,6 +779,11 @@ const UserDashboard = () => {
                         toast.error('Emergency alert triggered with limited functionality. Please call emergency services if needed.');
                       }
                     } finally {
+                      // Ensure the SOS button stays disabled for at least 10 seconds
+                      const remaining = Math.max(0, CAPTURE_MS - (Date.now() - startedAt));
+                      if (remaining > 0) {
+                        await new Promise((r) => setTimeout(r, remaining));
+                      }
                       setIsSendingSOS(false);
                     }
                   }}
